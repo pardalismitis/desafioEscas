@@ -1,0 +1,734 @@
+---
+title: "Desafio EscasLimpeza e Integração de Dados"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+### RStudio - GitHub - Organização de dados
+ Fernando Lima, Algoritmo
+
+## PREPARAÇÃO
+
+### PACOTES
+
+```{r pacotes, message=FALSE}
+rm(list = ls(all = TRUE))
+library(here)
+library(dplyr)
+library(stringr)
+library(tidyr)
+```
+
+\newpage
+
+### CARREGAR ARQUIVOS E CORREÇÃO GERAL  
+
+### Florestal Global  
+
+Arquivo gerado e atualizado a partir dos dados disponibilizados no GDrive.  
+
+```{r leituraFG, message = FALSE}
+planilha01 <-  readr::read_csv2(
+  here("01_dadosDeEntrada", "desafioTabela01.csv"),
+  show_col_types = FALSE)
+```
+
+Como vimos na preparação dos dados, as estimativas de área de vida estão com os valores do invervalo de confiança na mesma célula.
+Essa informação não pode ser usada desta maneira. São três variáveis, então vamos separar cada uma em uma coluna.
+
+Primeiro vamos extrair a primeira sequência de dígitos.
+
+Note que é necessário a conversão para numérico.
+
+```{r}
+planilha01 <- planilha01 %>%
+  dplyr::mutate(
+    HRC = as.numeric(
+      str_extract(HR, "\\d+")
+      )
+  )
+```
+
+Agora precisamos extrair o valor mínimo do intervalo de confiança. Existem diversas formas de fazer isso. Nesse caso vamos usar o "(" e o "-" como referência. Ou seja, vamos dizer ao R para pegar o valores que estão entre o "(" e o "-". A coluna será criada automaticamente.
+
+```{r}
+planilha01 <- planilha01 %>%
+  dplyr::mutate(
+    ICL = as.numeric(
+      sub("\\-.*", "", sub(".*\\(", "", HR))
+      )
+  )
+```
+
+
+Correção geral  
+```{r}
+planilha01 <- planilha01 %>%
+  # Extraia a primeira sequência de dígitos para mim e converta para numérico.
+  dplyr::mutate(
+    HRC = as.numeric(
+      str_extract(HR, "\\d+")
+      )
+  ) %>%
+  # Extraia os valores entre o "(" e "-" e converta para numérico 
+  dplyr::mutate(
+    ICL = as.numeric(
+      sub("\\-.*", "", sub(".*\\(", "", HR))
+      )
+  ) %>%
+  dplyr::mutate(
+    ICH = as.numeric(
+      sub("\\).*", "", sub(".*\\-", "", HR))
+      )
+  ) %>%
+  dplyr::mutate(
+    `No. loc.` = as.numeric(
+      na_if(`No. loc.`,"-")
+    )
+  )
+  
+planilha01 <- planilha01 %>%
+  dplyr::select(
+    -HR
+    )
+```
+
+\newpage
+
+### Florestal Complementar
+
+```{r leituraFC, message = FALSE}
+dadosFlorestalComplementar <-  readr::read_csv2(
+  here("01_dadosDeEntrada","quadroSinteseColetaFlorestalComplementar1.csv"),
+  show_col_types = FALSE)
+```
+
+Correção geral
+
+```{r}
+dadosFlorestalComplementar <- dadosFlorestalComplementar %>%
+# Exclua as linhas vazias do arquivo original
+  dplyr::filter(
+    !is.na(UC)
+    )%>%
+# Selecione só as colunas que vou trabalhar
+  dplyr::select(
+    UC,
+    Mês,
+    Ano,
+    USAID,
+    Atividade,
+    Alvo,
+    Amostragem,
+    `No de Estações amostradas (trilha, igarapé, lago,etc)`,
+    `No. dias de amostragem`,
+    `dias amostragem x estaçoes amostradas`,
+    `Número de registros`,
+    `Número de espécies registradas`,
+    Protocolo
+  )%>%
+# Renomeie algumas colunas
+  dplyr::rename(
+    nDeEstacoesAmostradas = `No de Estações amostradas (trilha, igarapé, lago,etc)`,
+    nDiasAmostrados = `No. dias de amostragem`,
+    esforco = `dias amostragem x estaçoes amostradas`,
+    nDeRegistros = `Número de registros`,
+    nDeEspeciesRegistradas = `Número de espécies registradas`
+  )%>%
+  dplyr::mutate(
+    across(everything(), as.character)
+  )%>%
+  dplyr::mutate(
+    Protocolo = tidyr::replace_na(Protocolo, "florestal complementar")
+  )
+```
+
+\newpage
+
+### Aquático Global  
+
+```{r leituraAG, message = FALSE}
+dadosAquaticoGlobal <-  readr::read_csv2(
+  here("01_dadosDeEntrada", "quadroSinteseColetaAquaticoGlobal.csv"),
+  show_col_types = FALSE)
+```
+
+Correção geral  
+
+```{r}
+dadosAquaticoGlobal <- dadosAquaticoGlobal %>%
+# Exclua as linhas vazias do arquivo original
+  dplyr::filter(
+    !is.na(UC)
+    )%>%
+# Selecione só as colunas que vou trabalhar
+  dplyr::select(
+    UC,
+    Mês,
+    Ano,
+    USAID,
+    Alvo,
+    `No de Estações amostradas (rios, lagos, locais)`,
+    `Número de registros`,
+    `Número de espécies registradas`,
+    `Produção (Kg)`,
+    `Produção Consumida (Kg)`
+  )%>%
+  dplyr::mutate(
+    Protocolo = "aquatico global"
+  )%>%
+# Renomeie algumas colunas
+  dplyr::rename(
+    nDeEstacoesAmostradas = `No de Estações amostradas (rios, lagos, locais)`,
+    nDeRegistros = `Número de registros`,
+    nDeEspeciesRegistradas = `Número de espécies registradas`,
+    producaoKg = `Produção (Kg)`,
+    producaoConsumida = `Produção Consumida (Kg)`
+  )%>%
+  dplyr::mutate(
+    Protocolo = as.character(Protocolo)
+  )%>%
+  dplyr::mutate(
+    across(everything(), as.character)
+  )
+```
+
+\newpage
+
+### União de Protocolos  
+```{r}
+dados <- bind_rows(
+    dadosAquaticoGlobal,
+    dadosFlorestalComplementar,
+    dadosFlorestalGlobal
+      )
+```
+
+Organização de colunas  
+```{r}
+dados <- dados %>%
+  relocate(UC)%>% 
+  relocate(Protocolo, .after = UC) %>%
+  relocate(Alvo, .after = Protocolo) %>%
+  relocate(Atividade, .after = Alvo) %>%
+  relocate(USAID, .after = Atividade) %>%
+  relocate(Ano, .after = USAID) %>%
+  relocate(Mês, .after = Ano) %>%
+  relocate(Amostragem, .after = Mês) %>%
+  relocate(nDiasAmostrados, .after = Amostragem) %>%
+  relocate(nDeEstacoesAmostradas, .after = nDiasAmostrados) %>%
+  relocate(esforco, .after = nDeEstacoesAmostradas) %>%
+  relocate(nDeEspeciesRegistradas, .after = esforco) %>%
+  relocate(nDeRegistros, .after = nDeEspeciesRegistradas) %>%
+  relocate(producaoKg, .after = nDeRegistros)
+```
+
+\newpage
+
+### Criar lista de dados de reposição
+
+```{r}
+shitToReplace <- data.frame(
+# Lista de palavras/símbolos para serem substituídos
+    target = c(
+      "JAM",
+      "TAP",
+      "CAZ",
+      "CAU",
+      "ROP",
+      "CUN",
+      "julho",
+      "julh",
+      "junho",
+      "agosto",
+      "maio",
+      "outubro",
+      "março",
+      "-",
+      "/",
+      ",",
+      ","
+      ),
+# Lista de palavras/símbolos de substituíção
+  replacement = c(
+    "Flona do Jamari",
+    "RESEX Tapajós Arapiuns",
+    "RESEX do Cazumbá Iracema",
+    "RESEX do Rio Cautário",
+    "RESEX Rio Ouro Preto",
+    "RESEX Lago do Cuniã",
+    "jul",
+    "jul",
+    "jun",
+    "ago",
+    "mai",
+    "out",
+    "mar",
+    "/",
+    "/",
+    "/",
+    "/"
+    )
+  )
+# Cria lista
+replacement <- c(shitToReplace$replacement)
+# Nomeia
+names(replacement) <- c(shitToReplace$target)
+
+shitToReplaceNumeros <- data.frame(
+# Lista de símbolos para campos numéricos
+    target = c("-","R", ",","7.8"),
+# Lista de símbolos para substituição
+  replacement = c("","", ".","78")
+  )
+# Cria lista
+replacementNumeros <- c(shitToReplaceNumeros$replacement)
+# Nomeia
+names(replacementNumeros) <- c(shitToReplaceNumeros$target)
+```
+
+\newpage
+
+Arrume as datas  
+
+```{r}
+shitToReplaceMes <- data.frame(
+# Lista de palavras/símbolos para serem substituídos
+    target = c(
+      "julho","julh","junho",
+      "agosto","maio","-",
+      "/",",",",",
+      "outubro","março","novembro",
+      "setembro","dezembro"
+      ),
+# Lista de palavras/símbolos de substituíção
+  replacement = c(
+    "jul","jul","jun",
+    "ago","mai","/",
+    "/","/","/",
+    "out","mar","nov",
+    "set","dez"
+    )
+  )
+# Cria lista
+replacementMes <- c(shitToReplaceMes$replacement)
+# Nomeia
+names(replacementMes) <- c(shitToReplaceMes$target)
+
+dados <- dados %>%
+# Passe todos os meses para minúscula
+  dplyr::mutate(
+    Mês = tolower(Mês)
+    )%>%
+# Retire todos os espaços nos meses
+  dplyr:: mutate(
+    Mês = stringr::str_replace_all(
+      Mês,
+      fixed(" "), ""
+      )
+    )%>%
+# Substitua os valores com a lista que te dei para Mês
+  dplyr::mutate(
+    Mês = stringr::str_replace_all(
+      Mês,
+      pattern = replacementMes
+      )
+    )
+# Crie um dataframe com linhas que devem ser repetidas
+paraRepetir <- dados %>%
+    dplyr::filter(
+      Mês == "out/19amar/20"
+      ) %>%
+# Separe o mês
+    dplyr::mutate(
+    Mês = stringr::str_sub(Mês, start = 1, end = -11)
+  ) %>%
+# Altere o ano
+    dplyr::mutate(
+    Ano = "2019"
+    ) %>%
+# Selecione os números de registros correspondentes ao ano
+  dplyr::mutate(
+    nDeRegistros = stringr::str_replace_all(
+      nDeRegistros,
+      "508/163",
+      "508"
+      )
+    ) %>%
+  dplyr::mutate(
+    nDeRegistros = stringr::str_replace_all(
+      nDeRegistros,
+      "503/163",
+      "503"
+      )
+    )
+```
+
+\newpage
+
+Junte as datas com o dataframe principal  
+
+```{r}
+dados <- dados %>%
+# Arrume o mês
+    dplyr::mutate(
+      Mês = stringr::str_replace_all(
+        Mês,
+        "out/19amar/20",
+        "mar"
+        )
+      ) %>%
+    # Arrume o mês
+    dplyr::mutate(
+      Mês = stringr::str_replace_all(
+        Mês,
+        "anual",
+        ""
+        )
+      ) %>%
+# Corrija os valores
+    dplyr::mutate(
+      nDeRegistros = stringr::str_replace_all(
+        nDeRegistros,
+        "508/163",
+        "163"
+        )
+      ) %>%
+    dplyr::mutate(
+      nDeRegistros = stringr::str_replace_all(
+        nDeRegistros,
+        "503/163",
+        "163"
+        )
+      ) %>%
+# Junte com os dados duplicados
+    rbind(
+      paraRepetir
+      ) %>%
+# Selecione o mês final
+    dplyr::mutate(
+    Mês = stringr::str_sub(Mês, -3)
+      ) %>%
+    dplyr::mutate(
+        Mês = stringr::str_replace_all(
+        Mês, "eca",
+        ""
+      )
+    ) %>%
+    dplyr::mutate(
+      Mês = stringr::str_replace_all(
+        Mês, "eia",
+        ""
+      )
+    ) %>%
+    dplyr::mutate(
+      Mês = stringr::str_replace_all(
+        Mês, "nte",
+        ""
+      )
+    )
+```
+
+\newpage
+
+### REVISÃO POR CAMPO  
+
+### UC  
+
+```{r}
+dadosTemp <- dados
+
+shitToReplaceUC <- data.frame(
+# Lista de palavras/símbolos para serem substituídos
+    target = c(
+      "JAM",
+      "Flona Jamari",
+      "TAP",
+      "CAZ",
+      "CAU",
+      "ROP",
+      "CUN",
+      "Tumucumaque",
+      "Cabo Orange",
+      "Parna Jaú"
+      ),
+# Lista de palavras/símbolos de substituíção
+  replacement = c(
+    "FLONA do Jamari",
+    "FLONA do Jamari",
+    "RESEX Tapajós Arapiuns",
+    "RESEX do Cazumbá Iracema",
+    "RESEX do Rio Cautário",
+    "RESEX Rio Ouro Preto",
+    "RESEX Lago do Cuniã",
+    "PARNA Montanhas do Tumucumaque",
+    "PARNA do Cabo Orange",
+    "PARNA do Jaú"
+    )
+  )
+# Cria lista
+replacementUC <- c(shitToReplaceUC$replacement)
+# Nomeia
+names(replacementUC) <- c(shitToReplaceUC$target)
+#dados <- dadosTemp  
+dados <- dados %>%
+  dplyr::mutate(
+    UC = stringr::str_replace_all(
+      UC,
+      pattern = replacementUC
+      )
+    ) %>%
+  dplyr::mutate(
+    UC = case_when(
+      UC == "Cazumbá" ~ "RESEX do Cazumbá Iracema",
+      UC == "Rebio Uatumã" ~ "REBIO Uatumã",
+      UC == "Resex Baixo Juruá" ~ "RESEX Baixo Juruá",
+      UC == "Resex Médio Juruá" ~ "RESEX Médio Juruá",
+      TRUE ~ UC)
+    )
+```
+
+### Alvo
+
+```{r}
+dadosTemp <- dados
+dados <- dados %>%
+  dplyr::mutate(
+    Alvo = tolower(Alvo)
+    )
+#sort(unique(dados$Alvo))
+```
+
+### Atividade
+
+```{r}
+dadosTemp <- dados
+#dados <- dadosTemp
+dados <- dados %>%
+  dplyr::mutate(
+    Atividade = tolower(Atividade)
+    )%>%
+  dplyr::mutate(
+      Atividade = stringr::str_replace_all(
+        Atividade,
+        "médios e grandes mamíferos",
+        "amostragem de mamíferos e aves em área de concessão florestal"
+        )
+      )
+```
+
+### Amostragem
+
+```{r}
+dadosTemp <- dados
+#dados <- dadosTemp
+
+dados <- dados %>%
+  dplyr::mutate(
+    Amostragem = tolower(Amostragem)
+    ) %>%
+  dplyr::mutate(
+    Amostragem = case_when(
+      Amostragem == "-" ~ "",
+      Amostragem == "1a e 2ª" ~ "1a/2a",
+      Amostragem == "1ª e 2a" ~ "1a/2a",
+      Amostragem == "1ª e 2ª" ~ "1a/2a",
+      Amostragem == "1a e 2a." ~ "1a/2a",
+      Amostragem == "1a e 2a" ~ "1a/2a",
+      Amostragem == "1a. e 2a." ~ "1a/2a",
+      Amostragem == "1a." ~ "1a",
+      Amostragem == "2ª" ~ "2a",
+      Amostragem == "2a." ~ "2a",
+      TRUE ~ Amostragem)
+    )
+
+sort(unique(dados$Amostragem))
+```
+
+### Número de dias amostrados
+
+```{r}
+dadosTemp <- dados
+#dados <- dadosTemp
+
+dados <- dados %>%
+  dplyr::mutate(
+    nDiasAmostrados = case_when(
+      nDiasAmostrados == "-" ~ "",
+      TRUE ~ nDiasAmostrados)
+    ) %>%
+  dplyr::mutate(
+    nDiasAmostrados = as.numeric(nDiasAmostrados)
+  )
+```
+
+### Número de estações amostradas  
+
+```{r}
+dadosTemp <- dados
+#dados <- dadosTemp
+
+dados <- dados %>%
+  dplyr::mutate(
+    nDeEstacoesAmostradas = case_when(
+      nDeEstacoesAmostradas == "61 (famílias)" ~ "61",
+      TRUE ~ nDeEstacoesAmostradas)
+    ) %>%
+  dplyr::mutate(
+    nDeEstacoesAmostradas = as.numeric(nDeEstacoesAmostradas)
+  )
+```
+
+### Esforço  
+
+```{r}
+dadosTemp <- dados
+#dados <- dadosTemp
+shitToReplaceEsforco <- data.frame(
+# Lista de símbolos para campos numéricos
+    target = c("-","7.8","4.8","6.4","5.0"),
+# Lista de símbolos para substituição
+  replacement = c("","78","48","64","50")
+  )
+# Cria lista
+replacementEsforco <- c(shitToReplaceEsforco$replacement)
+# Nomeia
+names(replacementEsforco) <- c(shitToReplaceEsforco$target)
+
+dados <- dados %>%
+  dplyr::mutate(
+    esforco = stringr::str_replace_all(
+      esforco,
+      pattern = replacementEsforco
+      )
+  ) %>%
+  dplyr::mutate(
+    esforco = stringr::str_replace_all(
+      esforco,
+      " horas/câmeras de esforço amostral",
+      ""
+    )
+  ) %>%
+  dplyr::mutate(
+    esforco = stringr::str_replace_all(
+      esforco,
+      " horas/câmera",
+      ""
+    )
+  ) %>%
+  dplyr::mutate(
+    esforco = as.numeric(esforco)
+  )
+```
+
+### Número de espécies registradas  
+
+```{r}
+dadosTemp <- dados
+#dados <- dadosTemp
+
+dados <- dados %>%
+  dplyr::mutate(
+    nDeEspeciesRegistradas = case_when(
+      nDeEspeciesRegistradas == "-" ~ "",
+      nDeEspeciesRegistradas == "----" ~ "",
+      nDeEspeciesRegistradas == "-----" ~ "",
+      nDeEspeciesRegistradas == "__" ~ "",
+      nDeEspeciesRegistradas == "13 tribos" ~ "13",
+      TRUE ~ nDeEspeciesRegistradas)
+    ) %>%
+  dplyr::mutate(
+    nDeEspeciesRegistradas = as.numeric(nDeEspeciesRegistradas)
+  )
+```
+
+
+### Número de registros  
+
+```{r}
+#dadosTemp <- dados
+#dados <- dadosTemp
+shitToReplaceNDeRegistros <- data.frame(
+# Lista de símbolos para campos numéricos
+    target = c("1.8","2.7","2.0","0.4","3.4","4.3","5.9","7.2","0.5","0.8","7.9","R ","1187/138","150/36/119","187/18","264/28","43,5/29/2","59/100","597/100"),
+# Lista de símbolos para substituição
+  replacement = c("18","27","20","04","34","43","59","72","05","08","79","","1187","150","187","264","43,5","59","597")
+  )
+# Cria lista
+replacementNDeRegistros <- c(shitToReplaceNDeRegistros$replacement)
+# Nomeia
+names(replacementNDeRegistros) <- c(shitToReplaceNDeRegistros$target)
+
+dados <- dados %>%
+  dplyr::mutate(
+    nDeRegistros = stringr::str_replace_all(
+      nDeRegistros,
+      pattern = replacementNDeRegistros
+      )
+  ) %>%
+  dplyr::mutate(
+    nDeRegistros = as.numeric(nDeRegistros)
+  )
+```
+
+### Produção  
+
+```{r}
+dados <- dados %>%
+  dplyr::mutate(
+    producaoKg = case_when(
+      producaoKg == "-" ~ "",
+      producaoKg == "1.011" ~ "1011",
+      producaoKg == "1.535" ~ "1535",
+      producaoKg == "3.182" ~ "3182",
+      producaoKg == "3.213" ~ "3213",
+      producaoKg == "3.319" ~ "3319",
+      producaoKg == "3.709" ~ "3709",
+      producaoKg == "3.786" ~ "3786",
+      producaoKg == "4.137" ~ "4137",
+      producaoKg == "4.551" ~ "4551",
+      TRUE ~ producaoKg)
+    ) %>%
+  dplyr::mutate(
+    producaoKg = as.numeric(producaoKg)
+  )
+```
+
+### Produção Consumida  
+
+```{r}
+dados <- dados %>%
+  dplyr::mutate(
+    producaoConsumida = case_when(
+      producaoConsumida == "-" ~ "",
+      producaoConsumida == "1.238" ~ "1238",
+      producaoConsumida == "1.525" ~ "1525",
+      producaoConsumida == "2.197" ~ "2197",
+      producaoConsumida == "2.463" ~ "2463",
+      producaoConsumida == "2.669" ~ "2669",
+      producaoConsumida == "3.633" ~ "3633",
+      TRUE ~ producaoConsumida)
+    ) %>%
+  dplyr::mutate(
+    producaoConsumida = as.numeric(producaoConsumida)
+  )
+```
+
+
+```{r}
+dados <- dados %>%
+dplyr::mutate_all(
+    na_if,""
+    )
+```
+
+\newpage
+
+### Exportar arquivos `*.rds` e `*.txt`
+
+```{r}
+readr::write_csv2(dados, here("03_dadosDeSaida", "quadroSinteseIntegração.txt"))
+```
