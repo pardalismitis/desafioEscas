@@ -1,10 +1,11 @@
 ---
 title: "Desafio Escas - Limpeza e Integração de Dados"
 output:
-  pdf_document: default
+  word_document: default
   html_document:
     df_print: paged
   html_notebook: default
+  pdf_document: default
 ---
 
 ### RSTUDIO - GITHUB - ORGANIZAÇÃO DE DADOS
@@ -23,9 +24,7 @@ library(stringr)
 library(tidyr)
 ```
 
-\newpage
-
-### CARREGAR ARQUIVOS E CORREÇÃO GERAL
+### CARREGAR ARQUIVOS
 
 Vamos carregar o arquivo que com a formatação que discutimos.
 
@@ -34,6 +33,10 @@ planilha01 <-  readr::read_csv2(
   here("01_dadosDeEntrada", "desafioTabela01.csv"),
   show_col_types = FALSE)
 ```
+
+\newpage
+
+### CORREÇÃO GERAL  
 
 ### Como lidar com dados agrupados em uma só coluna?
 
@@ -47,9 +50,7 @@ São três variáveis, então vamos separar cada uma em uma coluna.
 
 #### ÁREA DE VIDA
 
-Primeiro vamos extrair a primeira sequência de dígitos, correspondente a área de vida das onças.
-
-Note que é necessário converter para numérico usando `as.numeric` .
+Primeiro vamos extrair a primeira sequência de dígitos, correspondente a área de vida das onças. Note que é necessário converter para numérico usando `as.numeric` .
 
 ```{r}
 planilha01 <- planilha01 %>%
@@ -83,7 +84,7 @@ planilha01 <- planilha01 %>%
   )
 ```
 
-------------------------------------------------------------------------
+\newpage
 
 #### INTERVALO DE CONFIANÇA (IC+)
 
@@ -139,10 +140,10 @@ planilha01 <- planilha01 %>%
 #### EXPORTAR ARQUIVO `*.txt`
 
 ```{r}
-readr::write_csv2(dados, here("03_dadosDeSaida", "quadroSinteseIntegração.txt"))
+readr::write_csv2(planilha01, here("03_dadosDeSaida", "desafioEscasPlanilha01.txt"))
 ```
 
-------------------------------------------------------------------------
+\newpage
 
 #### COMENTÁRIOS FINAIS
 
@@ -158,9 +159,15 @@ Mas é possível fazer tudo de uma vez com usando o operador pipe `%>%`, present
 
 Para testar é necessário carregar o arquivo de novo, já que excluímos a coluna com as informações.
 
+```{r, message = FALSE}
+planilha01 <-  readr::read_csv2(
+  here("01_dadosDeEntrada", "desafioTabela01.csv"),
+  show_col_types = FALSE)
+```
+
 ```{r}
 planilha01 <- planilha01 %>%
-  # Extraia a primeira sequência de dígitos para mim e converta para numérico.
+  # Extraia a primeira sequência de dígitos e converta para numérico.
   dplyr::mutate(
     HRC = as.numeric(
       str_extract(HR, "\\d+")
