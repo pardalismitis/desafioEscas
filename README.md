@@ -1,4 +1,5 @@
 # BOAS PRÁTICAS NA ORGANIZAÇÃO DE DADOS
+Prof. Dr. Fernando Lima
 
 Exercício para disciplina da ESCAS - Turma 2022
 
