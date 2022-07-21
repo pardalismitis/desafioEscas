@@ -38,7 +38,7 @@ planilha01 <-  readr::read_csv2(
 
 \newpage
 
-### CORREÇÃO GERAL  
+### CORREÇÃO GERAL
 
 ### Como lidar com dados agrupados em uma só coluna?
 
