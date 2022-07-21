@@ -18,10 +18,12 @@ Prof. Dr. Fernando Lima
 
 ```{r pacotes, message=FALSE}
 rm(list = ls(all = TRUE))
-library(here)
-library(dplyr)
-library(stringr)
-library(tidyr)
+source("funcoes/pacotes.R")
+pacotes("here", "dplyr","tidyverse", "knitr","readr")
+#library(here)
+#library(dplyr)
+#library(stringr)
+#library(tidyr)
 ```
 
 ### CARREGAR ARQUIVOS
